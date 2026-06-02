@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Task Management UI</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f7fb;
+      --surface: #ffffff;
+      --surface-strong: #f3f5f9;
+      --text: #1f2937;
+      --muted: #64748b;
+      --primary: #2563eb;
+      --primary-soft: #e0efff;
+      --success: #059669;
+      --danger: #dc2626;
+      --border: #e2e8f0;
+      --radius: 18px;
+      --shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at top left, rgba(37, 99, 235, 0.12), transparent 30%),
+                  radial-gradient(circle at bottom right, rgba(16, 185, 129, 0.12), transparent 24%),
+                  var(--bg);
+      color: var(--text);
+    }
+
+    .page {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 28px 24px 40px;
+    }
+
+    .hero {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 28px;
+    }
+
+    .hero-text {
+      max-width: 720px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2.1rem, 3vw, 3rem);
+      line-height: 1.05;
+    }
+
+    p.lead {
+      margin: 16px 0 0;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.75;
+      max-width: 640px;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .hero-actions button,
+    .hero-actions .status-pill {
+      border: none;
+      border-radius: 999px;
+      padding: 12px 20px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .hero-actions button {
+      background: var(--primary);
+      color: white;
+      transition: transform 0.22s ease, box-shadow 0.22s ease;
+    }
+
+    .hero-actions button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 14px 28px rgba(37, 99, 235, 0.18);
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--primary-soft);
+      color: var(--primary);
+      font-size: 0.94rem;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 24px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 24px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 26px;
+      overflow: hidden;
+    }
+
+    .card h2 {
+      margin-top: 0;
+      margin-bottom: 18px;
+      font-size: 1.2rem;
+    }
+
+    form {
+      display: grid;
+      gap: 16px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.95rem;
+      margin-bottom: 8px;
+      color: var(--muted);
+    }
+
+    input,
+    textarea,
+    select {
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--surface-strong);
+      color: var(--text);
+      font-size: 0.98rem;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    input:focus,
+    textarea:focus,
+    select:focus {
+      outline: none;
+      border-color: rgba(37, 99, 235, 0.55);
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+    }
+
+    textarea { resize: vertical; min-height: 100px; }
+
+    .form-row {
+      display: grid;
+      gap: 16px;
+    }
+
+    .form-row.two-columns {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    button[type="submit"] {
+      width: fit-content;
+      padding: 14px 22px;
+      background: var(--primary);
+      color: white;
+      font-weight: 700;
+      border-radius: 14px;
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s ease, transform 0.2s ease;
+    }
+
+    button[type="submit"]:hover {
+      background: #1d4ed8;
+      transform: translateY(-1px);
+    }
+
+    .message {
+      min-height: 22px;
+      font-size: 0.95rem;
+      line-height: 1.4;
+      color: var(--success);
+    }
+
+    .message.error { color: var(--danger); }
+
+    .table-scroll {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+      min-width: 620px;
+    }
+
+    th, td {
+      padding: 15px 14px;
+      text-align: left;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+    }
+
+    th {
+      background: var(--surface-strong);
+      color: var(--muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-size: 0.82rem;
+    }
+
+    tbody tr:hover {
+      background: rgba(37, 99, 235, 0.05);
+    }
+
+    .compact-select {
+      margin-bottom: 22px;
+    }
+
+    .compact-select select {
+      width: 100%;
+    }
+
+    @media (max-width: 980px) {
+      .grid-2,
+      .grid-3 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .page { padding: 20px 16px 28px; }
+      .hero { padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="hero">
+      <div class="hero-text">
+        <h1>Task Management Dashboard</h1>
+        <p class="lead">Manage users and tasks from one polished control panel. Create users, assign new tasks, and view everything in a single responsive workspace.</p>
+      </div>
+      <div class="hero-actions">
+        <button id="refreshUsers">Refresh users</button>
+        <button id="refreshTasks">Refresh tasks</button>
+        <span class="status-pill">UI running on port 3000</span>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h2>Create user</h2>
+        <form id="createUserForm">
+          <div class="form-row">
+            <label for="userName">Name</label>
+            <input id="userName" type="text" placeholder="Jane Doe" required />
+          </div>
+          <div class="form-row">
+            <label for="userEmail">Email</label>
+            <input id="userEmail" type="email" placeholder="jane@example.com" required />
+          </div>
+          <button type="submit">Create user</button>
+          <div id="userMessage" class="message"></div>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>Create task</h2>
+        <form id="createTaskForm">
+          <div class="form-row">
+            <label for="taskUserSelect">User</label>
+            <select id="taskUserSelect" required><option value="">Select a user</option></select>
+          </div>
+          <div class="form-row">
+            <label for="taskTitle">Title</label>
+            <input id="taskTitle" type="text" placeholder="Task title" required />
+          </div>
+          <div class="form-row">
+            <label for="taskDescription">Description</label>
+            <textarea id="taskDescription" placeholder="Describe the task"></textarea>
+          </div>
+          <div class="form-row">
+            <label for="taskStatus">Status</label>
+            <select id="taskStatus">
+              <option value="pending">Pending</option>
+              <option value="in progress">In progress</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
+          <button type="submit">Create task</button>
+          <div id="taskMessage" class="message"></div>
+        </form>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-top: 24px;">
+      <div class="card">
+        <h2>Users</h2>
+        <div class="compact-select">
+          <select id="userSelect"><option value="">Show all users</option></select>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr><th>ID</th><th>Name</th><th>Email</th><th>Created</th></tr>
+            </thead>
+            <tbody id="usersBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Tasks</h2>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr><th>ID</th><th>User</th><th>Title</th><th>Status</th><th>Created</th></tr>
+            </thead>
+            <tbody id="tasksBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const usersBody = document.getElementById('usersBody');
+    const tasksBody = document.getElementById('tasksBody');
+    const userSelect = document.getElementById('userSelect');
+    const taskUserSelect = document.getElementById('taskUserSelect');
+    const refreshUsers = document.getElementById('refreshUsers');
+    const refreshTasks = document.getElementById('refreshTasks');
+    const createUserForm = document.getElementById('createUserForm');
+    const createTaskForm = document.getElementById('createTaskForm');
+    const userMessage = document.getElementById('userMessage');
+    const taskMessage = document.getElementById('taskMessage');
+
+    async function fetchUsers() {
+      const res = await fetch('/api/users');
+      return await res.json();
+    }
+
+    async function createUser(data) {
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      return await res.json();
+    }
+
+    async function fetchTasks(userId) {
+      if (userId) {
+        const res = await fetch(`/api/tasks/user/${userId}`);
+        return await res.json();
+      }
+      const res = await fetch('/api/tasks');
+      return await res.json();
+    }
+
+    async function createTask(data) {
+      const res = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      return await res.json();
+    }
+
+    function renderUsers(users) {
+      userSelect.innerHTML = '<option value="">Show all users</option>';
+      taskUserSelect.innerHTML = '<option value="">Select a user</option>';
+      usersBody.innerHTML = users.map(user => `
+        <tr>
+          <td>${user.id}</td>
+          <td>${user.name}</td>
+          <td>${user.email}</td>
+          <td>${new Date(user.created_at).toLocaleString()}</td>
+        </tr>
+      `).join('');
+      users.forEach(user => {
+        const option = document.createElement('option');
+        option.value = user.id;
+        option.textContent = `${user.name} (${user.email})`;
+        userSelect.appendChild(option);
+        taskUserSelect.appendChild(option.cloneNode(true));
+      });
+    }
+
+    function renderTasks(tasks) {
+      tasksBody.innerHTML = tasks.map(task => `
+        <tr>
+          <td>${task.id}</td>
+          <td>${task.user_id}</td>
+          <td>${task.title}</td>
+          <td>${task.status}</td>
+          <td>${new Date(task.created_at).toLocaleString()}</td>
+        </tr>
+      `).join('');
+    }
+
+    function showMessage(element, message, isError = false) {
+      element.textContent = message;
+      element.className = isError ? 'message error' : 'message';
+      setTimeout(() => { element.textContent = ''; }, 4000);
+    }
+
+    async function loadUsers() {
+      const users = await fetchUsers();
+      renderUsers(Array.isArray(users) ? users : []);
+    }
+
+    async function loadTasks() {
+      const userId = userSelect.value;
+      const tasks = await fetchTasks(userId);
+      renderTasks(Array.isArray(tasks) ? tasks : []);
+    }
+
+    createUserForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const userData = {
+        name: document.getElementById('userName').value.trim(),
+        email: document.getElementById('userEmail').value.trim()
+      };
+      if (!userData.name || !userData.email) {
+        showMessage(userMessage, 'Name and email are required.', true);
+        return;
+      }
+      const result = await createUser(userData);
+      if (result && result.id) {
+        showMessage(userMessage, 'User created successfully.');
+        createUserForm.reset();
+        await loadUsers();
+        await loadTasks();
+      } else {
+        showMessage(userMessage, result.error || 'Failed to create user.', true);
+      }
+    });
+
+    createTaskForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const taskData = {
+        userId: Number(taskUserSelect.value),
+        title: document.getElementById('taskTitle').value.trim(),
+        description: document.getElementById('taskDescription').value.trim(),
+        status: document.getElementById('taskStatus').value
+      };
+      if (!taskData.userId || !taskData.title) {
+        showMessage(taskMessage, 'Please select a user and enter a title.', true);
+        return;
+      }
+      const result = await createTask(taskData);
+      if (result && result.id) {
+        showMessage(taskMessage, 'Task created successfully.');
+        createTaskForm.reset();
+        await loadTasks();
+      } else {
+        showMessage(taskMessage, result.error || 'Failed to create task.', true);
+      }
+    });
+
+    userSelect.addEventListener('change', loadTasks);
+    refreshUsers.addEventListener('click', loadUsers);
+    refreshTasks.addEventListener('click', loadTasks);
+
+    loadUsers();
+    loadTasks();
+  </script>
+</body>
+</html>
