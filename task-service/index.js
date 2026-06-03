@@ -6,8 +6,11 @@ require('dotenv').config();
 const app = express();
 app.use(express.json());
 
+const databaseUrl = process.env.DATABASE_URL ||
+  `postgres://${process.env.DB_USER || process.env.POSTGRES_USER}:${process.env.DB_PASSWORD || process.env.POSTGRES_PASSWORD}@${process.env.DB_HOST || 'postgres-tasks'}:5432/${process.env.DB_NAME || process.env.POSTGRES_DB}`;
+
 const pool = new Pool({ 
-  connectionString: process.env.DATABASE_URL,
+  connectionString: databaseUrl,
   connectionTimeoutMillis: 5000 
 });
 
@@ -35,12 +38,13 @@ async function initDatabase(retries = 5) {
   console.error('❌ Failed to initialize tasks database');
 }
 
-initDatabase();
+async function startServer() {
+  await initDatabase();
 
-app.get('/health', (req, res) => res.send('Task Service Healthy'));
+  app.get('/health', (req, res) => res.send('Task Service Healthy'));
 
-// Create Task
-app.post('/tasks', async (req, res) => {
+  // Create Task
+  app.post('/tasks', async (req, res) => {
   const { userId, title, description } = req.body;
 
   if (!userId || !title) {
@@ -89,4 +93,10 @@ app.get('/tasks', async (req, res) => {
   }
 });
 
-app.listen(3002, () => console.log('🚀 Task Service running on port 3002'));
+  app.listen(3002, () => console.log('🚀 Task Service running on port 3002'));
+}
+
+startServer().catch(err => {
+  console.error('Failed to start Task Service', err);
+  process.exit(1);
+});

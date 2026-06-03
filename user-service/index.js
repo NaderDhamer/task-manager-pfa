@@ -5,8 +5,11 @@ require('dotenv').config();
 const app = express();
 app.use(express.json());
 
+const databaseUrl = process.env.DATABASE_URL ||
+  `postgres://${process.env.DB_USER || process.env.POSTGRES_USER}:${process.env.DB_PASSWORD || process.env.POSTGRES_PASSWORD}@${process.env.DB_HOST || 'postgres-users'}:5432/${process.env.DB_NAME || process.env.POSTGRES_DB}`;
+
 const pool = new Pool({ 
-  connectionString: process.env.DATABASE_URL,
+  connectionString: databaseUrl,
   connectionTimeoutMillis: 5000
 });
 
@@ -32,12 +35,13 @@ async function initDatabase(retries = 5) {
   console.error('❌ Failed to initialize database after multiple attempts');
 }
 
-initDatabase();
+async function startServer() {
+  await initDatabase();
 
-app.get('/health', (req, res) => res.send('User Service Healthy'));
+  app.get('/health', (req, res) => res.send('User Service Healthy'));
 
-// Get all users
-app.get('/users', async (req, res) => {
+  // Get all users
+  app.get('/users', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM users');
     res.json(result.rows);
@@ -71,4 +75,10 @@ app.post('/users', async (req, res) => {
   }
 });
 
-app.listen(3001, () => console.log('🚀 User Service running on port 3001'));
+  app.listen(3001, () => console.log('🚀 User Service running on port 3001'));
+}
+
+startServer().catch(err => {
+  console.error('Failed to start User Service', err);
+  process.exit(1);
+});
