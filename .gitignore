@@ -1,0 +1,14 @@
+form
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# Node
+node_modules/
+
+# Logs
+*.log
+
+# Environment files
+.env
