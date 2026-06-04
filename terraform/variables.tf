@@ -16,16 +16,18 @@ variable "cluster_version" {
   default     = "1.30"
 }
 
+
+
 variable "cluster_role_arn" {
   description = "ARN of the existing EKS cluster role."
   type        = string
-  default     = "arn:aws:iam::636449817691:role/c205024a5229197l15172502t1w636449-LabEksClusterRole-wGmEwOB2Os7v"
+  default     = "arn:aws:iam::636449817691:role/c205024a5229197l15172502t1w636449-LabEksClusterRole-KijSotxYYBq0"
 }
 
 variable "node_role_arn" {
   description = "ARN of the existing EKS node role."
   type        = string
-  default     = "arn:aws:iam::636449817691:role/c205024a5229197l15172502t1w636449817-LabEksNodeRole-0YXwIbrXWgaC"
+  default     = "arn:aws:iam::636449817691:role/c205024a5229197l15172502t1w636449817-LabEksNodeRole-PnOopHDKib8q"
 }
 
 variable "node_instance_type" {
