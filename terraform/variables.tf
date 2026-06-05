@@ -21,13 +21,13 @@ variable "cluster_version" {
 variable "cluster_role_arn" {
   description = "ARN of the existing EKS cluster role."
   type        = string
-  default     = "arn:aws:iam::636449817691:role/c205024a5229197l15172502t1w636449-LabEksClusterRole-KijSotxYYBq0"
+  default     = "arn:aws:iam::636449817691:role/c205024a5229197l15172502t1w636449-LabEksClusterRole-SGtBk7jeD89L"
 }
 
 variable "node_role_arn" {
   description = "ARN of the existing EKS node role."
   type        = string
-  default     = "arn:aws:iam::636449817691:role/c205024a5229197l15172502t1w636449817-LabEksNodeRole-PnOopHDKib8q"
+  default     = "arn:aws:iam::636449817691:role/c205024a5229197l15172502t1w636449817-LabEksNodeRole-rTupbyoFQXtf"
 }
 
 variable "node_instance_type" {

@@ -14,7 +14,7 @@ const pool = new Pool({
 });
 
 // Retry logic to initialize database
-async function initDatabase(retries = 5) {
+async function initDatabase(retries = 20) {
   for (let i = 0; i < retries; i++) {
     try {
       await pool.query(`
@@ -28,8 +28,8 @@ async function initDatabase(retries = 5) {
       console.log('✅ Users table initialized successfully');
       return;
     } catch (err) {
-      console.error(`❌ Attempt ${i+1}/${retries} failed. Retrying in 3s...`, err.message);
-      await new Promise(res => setTimeout(res, 3000));
+      console.error(`❌ Attempt ${i+1}/${retries} failed. Retrying in 5s...`, err.message);
+      await new Promise(res => setTimeout(res, 5000));
     }
   }
   console.error('❌ Failed to initialize database after multiple attempts');
