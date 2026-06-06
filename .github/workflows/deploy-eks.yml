@@ -1,0 +1,190 @@
+name: Deploy to AWS EKS
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'user-service/**'
+      - 'task-service/**'
+      - 'ui/**'
+      - 'k8s/**'
+      - '.github/workflows/deploy-eks.yml'
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+  CLUSTER_NAME: task-mgmt-eks
+  NAMESPACE: task-mgmt
+
+jobs:
+  build-and-push-ecr:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    strategy:
+      matrix:
+        service: 
+          - user-service
+          - task-service
+          - ui
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image to Amazon ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/${{ matrix.service }}:latest -t $ECR_REGISTRY/${{ matrix.service }}:$IMAGE_TAG ./${{ matrix.service }}
+          docker push $ECR_REGISTRY/${{ matrix.service }}:latest
+          docker push $ECR_REGISTRY/${{ matrix.service }}:$IMAGE_TAG
+
+      - name: Output image URI
+        run: |
+          echo "${{ matrix.service }}_IMAGE_URI=${{ steps.login-ecr.outputs.registry }}/${{ matrix.service }}:latest" >> $GITHUB_OUTPUT
+
+  deploy-to-eks:
+    needs: build-and-push-ecr
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --region ${{ env.AWS_REGION }} \
+            --name ${{ env.CLUSTER_NAME }}
+
+      - name: Verify cluster connection
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+
+      - name: Create namespace if not exists
+        run: |
+          kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Set current context to namespace
+        run: |
+          kubectl config set-context --current --namespace=${{ env.NAMESPACE }}
+
+      - name: Create PostgreSQL secrets
+        run: |
+          # Delete existing secrets if they exist
+          kubectl delete secret postgres-users-secret postgres-tasks-secret -n ${{ env.NAMESPACE }} --ignore-not-found=true
+          
+          # Create new secrets
+          kubectl create secret generic postgres-users-secret \
+            --from-literal=POSTGRES_USER=postgres \
+            --from-literal=POSTGRES_PASSWORD=postgres \
+            -n ${{ env.NAMESPACE }}
+
+          kubectl create secret generic postgres-tasks-secret \
+            --from-literal=POSTGRES_USER=postgres \
+            --from-literal=POSTGRES_PASSWORD=postgres \
+            -n ${{ env.NAMESPACE }}
+
+      - name: Update image URLs in manifests
+        env:
+          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+        run: |
+          # Update user-service image
+          sed -i "s|image:.*user-service.*|image: $ECR_REGISTRY/user-service:latest|g" k8s/app-manifests.yaml
+          
+          # Update task-service image
+          sed -i "s|image:.*task-service.*|image: $ECR_REGISTRY/task-service:latest|g" k8s/app-manifests.yaml
+          
+          # Update ui image
+          sed -i "s|image:.*ui.*|image: $ECR_REGISTRY/ui:latest|g" k8s/app-manifests.yaml
+
+      - name: Deploy to EKS
+        run: |
+          kubectl apply -f k8s/app-manifests.yaml -n ${{ env.NAMESPACE }}
+
+      - name: Wait for pods to be ready
+        run: |
+          echo "Waiting for postgres-users pod..."
+          kubectl wait --for=condition=ready pod -l app=postgres-users -n ${{ env.NAMESPACE }} --timeout=300s || true
+          
+          echo "Waiting for postgres-tasks pod..."
+          kubectl wait --for=condition=ready pod -l app=postgres-tasks -n ${{ env.NAMESPACE }} --timeout=300s || true
+          
+          echo "Waiting for user-service pod..."
+          kubectl wait --for=condition=ready pod -l app=user-service -n ${{ env.NAMESPACE }} --timeout=300s || true
+          
+          echo "Waiting for task-service pod..."
+          kubectl wait --for=condition=ready pod -l app=task-service -n ${{ env.NAMESPACE }} --timeout=300s || true
+          
+          echo "Waiting for ui-service pod..."
+          kubectl wait --for=condition=ready pod -l app=ui-service -n ${{ env.NAMESPACE }} --timeout=300s || true
+
+      - name: Verify all pods are running
+        run: |
+          kubectl get pods -n ${{ env.NAMESPACE }}
+
+      - name: Get LoadBalancer external IP
+        run: |
+          echo "Waiting for LoadBalancer external IP..."
+          kubectl get svc ui-service -n ${{ env.NAMESPACE }}
+          
+          # Wait for external IP
+          kubectl get svc ui-service -n ${{ env.NAMESPACE }} -w --timeout=300s
+
+      - name: Test service connectivity
+        run: |
+          echo "Testing user-service health endpoint..."
+          kubectl exec -it deployment/user-service -n ${{ env.NAMESPACE }} -- curl -s http://user-service:3001/health || true
+
+      - name: Display deployment logs (if needed)
+        if: failure()
+        run: |
+          echo "=== User Service Logs ==="
+          kubectl logs -n ${{ env.NAMESPACE }} -l app=user-service --tail=50 || true
+          
+          echo "=== Task Service Logs ==="
+          kubectl logs -n ${{ env.NAMESPACE }} -l app=task-service --tail=50 || true
+          
+          echo "=== UI Service Logs ==="
+          kubectl logs -n ${{ env.NAMESPACE }} -l app=ui-service --tail=50 || true
+          
+          echo "=== PostgreSQL Users Logs ==="
+          kubectl logs -n ${{ env.NAMESPACE }} -l app=postgres-users --tail=50 || true
+
+      - name: Deployment Summary
+        if: success()
+        run: |
+          echo "✅ Deployment to EKS completed successfully!"
+          echo ""
+          echo "Cluster: ${{ env.CLUSTER_NAME }}"
+          echo "Region: ${{ env.AWS_REGION }}"
+          echo "Namespace: ${{ env.NAMESPACE }}"
+          echo ""
+          echo "To get the external IP:"
+          echo "kubectl get svc ui-service -n ${{ env.NAMESPACE }}"
+          echo ""
+          echo "To view logs:"
+          echo "kubectl logs -f deployment/user-service -n ${{ env.NAMESPACE }}"
