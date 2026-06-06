@@ -1,0 +1,46 @@
+name: Deploy to Kubernetes
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'k8s/**'
+      - '.github/workflows/deploy-k8s.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.27.0'
+
+      - name: Configure kubectl
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Validate Kubernetes manifests
+        run: |
+          kubectl apply -f k8s/app-manifests.yaml --dry-run=client -o yaml
+
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl apply -f k8s/app-manifests.yaml
+
+      - name: Verify rollout
+        run: |
+          kubectl rollout status deployment/user-service -n default --timeout=5m
+          kubectl rollout status deployment/task-service -n default --timeout=5m
+          kubectl rollout status deployment/ui -n default --timeout=5m
+
+      - name: Get service status
+        if: always()
+        run: |
+          kubectl get services -n default
+          kubectl get pods -n default

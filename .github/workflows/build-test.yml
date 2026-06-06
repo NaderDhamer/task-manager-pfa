@@ -1,0 +1,67 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: testdb
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Test User Service
+      - name: Setup Node.js for user-service
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: user-service/package-lock.json
+
+      - name: Install dependencies (user-service)
+        working-directory: user-service
+        run: npm install
+
+      - name: Lint (user-service)
+        working-directory: user-service
+        run: npm run lint --if-present
+
+      # Test Task Service
+      - name: Install dependencies (task-service)
+        working-directory: task-service
+        run: npm install
+
+      - name: Lint (task-service)
+        working-directory: task-service
+        run: npm run lint --if-present
+
+      # Test UI Service
+      - name: Install dependencies (ui)
+        working-directory: ui
+        run: npm install
+
+      - name: Build (ui)
+        working-directory: ui
+        run: npm run build --if-present
+
+      - name: Lint (ui)
+        working-directory: ui
+        run: npm run lint --if-present
